@@ -1,0 +1,69 @@
+  #include <stdio.h>
+ #include <sys/ipc.h>
+ #include <sys/shm.h>
+ #include <errno.h>
+ #include "event.h"
+
+ #define SGA_BASE       0x80000000 /* SGA BASE ADDRESS */
+ #define KSUSECST_ADDR  0x85251EF4 /* START ADDR of KSUSECST */
+ #define SESSIONS       150        /* NUMBER of ROWS/RECORDS in */
+ #define RECORD_SZ      2328       /* SIZE in BYTES of a ROW in */
+
+ #define KSUSSSEQ 1276     /* offset 1276  size 2 */
+ #define KSUSSOPC 1278     /* offset 1276  size 2 */
+ #define KSUSSP1R 1280     /* offset 1280  size 4 */
+ #define KSUSSP2R 1284     /* offset 1284  size 4 */
+ #define KSUSSP3R 1288     /* offset 1288  size 4 */
+
+ main(argc, argv)
+ int argc;
+ char **argv;
+ {
+  void  *addr;
+  int   shmid;
+  int   shmaddr;
+  void  *current_addr;
+  long  p1r, p2r, p3r, sqla;
+  unsigned int   i, seq, tim, flg, evn;
+
+     if (argc != 2) {
+         fprintf(stderr, "Usage: %s shmid \n", *argv);
+         exit(1);
+     }
+
+  /* ATTACH TO SGA */
+     shmid=atoi(argv[1]);
+     shmaddr=SGA_BASE;
+     if (  (void *)shmat(shmid,(void *)shmaddr,SHM_RDONLY) == (void *)-1 ) {
+         printf("shmat: error attatching to SGA\n");
+         exit();
+     }
+
+
+   /* LOOP OVER ALL SESSIONS until CANCEL */
+    while (1) {
+        current_addr=(void *)KSUSECST_ADDR;
+        sleep(1);
+        printf("^[[H ^[[J");  /* clear screen */
+        printf("%4s %8s %-20.20s %10s %10s %10s \n",
+              "sid", "seq", "wait","p1","p2","p3");
+        for ( i=0; i < SESSIONS ; i++ ) {
+           seq=*(unsigned short *)((int)current_addr+KSUSSSEQ);
+           evn=*(short *)         ((int)current_addr+KSUSSOPC);
+           p1r=*(long *)          ((int)current_addr+KSUSSP1R);
+           p2r=*(long *)          ((int)current_addr+KSUSSP2R);
+           p3r=*(long *)          ((int)current_addr+KSUSSP3R);
+           if (  evn != 0 ) {
+                 printf("%4d %8u %-20.20s %10X %10X %10X \n",
+                   i,
+                   seq,
+                   event[evn] ,
+                   p1r,
+                   p2r,
+                   p3r
+                 );
+            }
+            current_addr=(void *)((int)current_addr+RECORD_SZ);
+         }
+    }
+  }

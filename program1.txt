@@ -1,0 +1,37 @@
+#include <stdio.h>
+#include <fcntl.h>
+#define  N 20
+
+/* structure definition: */
+struct foo
+{
+        int id;
+        int a;
+        int b;
+        int c;
+};
+/* end structure defintion */
+
+main()
+{
+struct foo foo[20];
+int fptr;
+
+  memset(foo,0,sizeof(foo));
+    /* record 1 */
+    foo[0].id=1;
+    foo[0].a=11;
+    foo[0].b=12;
+    foo[0].c=13;
+    /* record 2 */
+    foo[1].id=2;
+    foo[1].a=21;
+    foo[1].b=22;
+    foo[1].c=23;
+
+  if ((fptr = open("foo.out",O_WRONLY | O_CREAT,0777)) < 0 )
+   return -1;
+  write(fptr,foo,sizeof(foo));
+  return 0;
+}
+

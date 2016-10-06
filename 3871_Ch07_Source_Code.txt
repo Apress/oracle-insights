@@ -1,0 +1,50 @@
+/* Query displaying the version number of components installed in this release of Oracle */
+SQL> select * from v_$version;
+
+
+/* Query displaying the number of wait events in this release */
+SQL> select count(*) from v_$event_name;
+
+/* Query displaying the various wait classes and the number of wait events in each class */
+SQL> select wait_class, count(*) from v_$event_name group by wait_class;
+
+/* Query the various wait classes and the number of wait events in each class */
+SQL> select view_definition from v_$fixed_view_definition where view_name = 'GV$ACTIVE_SESSION_HISTORY';
+
+/* Query providing wait details and SQL details from ASH for a foreground user, DEMO_USER, in the previous 3 3/4 minutes */
+SQL> select ash.user_id "USER", e.name "EVNAME", e.wait_class "EVCLASS", ash.twait_msecs"TWAIT_MSECS", ash.obj# "OBJ#", ash.file# "FILE#", s.sql_text "SQL" from v_$sql s, v_$event_name e, ( select user_id, sql_id "SQL_ID", sql_plan_hash_value, sql_opcode, seq#, event#, p1, p2, p3, time_waited/1000 "TWAIT_MSECS", current_obj# "OBJ#", current_file# "FILE#", current_block# "BLOCK#" from v_$active_session_history where session_type <> 'BACKGROUND' and (session_id,session_serial#) in
+( select sid,serial# from v_$session where username = (upper('&&oracle_user_name')))
+and wait_time = 0 and event# <> 0 and sample_time between sysdate-(0.125/24) and sysdate) ash 
+where s.sql_id = ash.sql_id and e.event# = ash.event#;
+
+/* Query displaying the breakdown of wait time in milliseconds for all events beginning with the string db file and having an occurrence frequency of 100 times or higher. */
+SQL> select event, wait_count, wait_time_milli from v$event_histogram where event like 'db file%' and wait_count > 100 order by event, wait_time_milli, wait_count
+
+/* Query displaying session wait details */
+SQL> select event, seq#, sid, p1, p2, p3, wait_time from v_$session_wait where state = 'WAITED KNOWN TIME';
+
+/* Query displaying details from Active Session History (ASH) */
+SQL> select sid, event, wait_count, wait_time from v_$session_wait_history where event# not in (select event# from v$event_name where wait_class in ('Idle','Other'));
+
+/* Query displaying user and process information */
+select s.username, p.spid, s.sid, s.serial# from v_$session s, v_$process p 
+where s.paddr = p.addr and p.spid =<PID>;
+
+SQL> set linesize 132
+SQL> col event format a40
+SQL> col avg_wait_secs format 99.9999
+SQL> col wait_secs format 9999.9999
+SQL> col connection_time format 9999.9999
+SQL> undef oracle_sid_number
+SQL>
+SQL> select se.event, (se.average_wait/100) AVG_WAIT_SECS, sum(se.total_waits) TOTAL_WAITS, sum(se.time_waited/100) WAIT_SECS, st.connection_time_secs CONNECTION_TIME, (sum(se.time_waited/100)/st.connection_time_secs * 100) PERCENT_OF_CONNECTION_TIME
+from v_$session_event se, (select ((sysdate-logon_time)*24*60*60) CONNECTION_TIME_SECS
+from v_$session where sid = &&oracle_sid_number ) st /* -1 needs to be added if relevant */
+where se.sid = &&oracle_sid_number /* -1 needs to be added if relevant */
+group by se.event, se.average_wait/100, st.connection_time_secs
+order by 4 desc;
+
+/* Query details from session wait history */
+SQL> select sid, event, wait_count, wait_time from v_$session_wait_history where event# not in (select event# from v$event_name where wait_class in ('Idle','Other'));
+
+
